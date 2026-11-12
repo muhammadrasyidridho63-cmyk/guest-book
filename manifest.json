@@ -1,0 +1,3 @@
+{ "name": "SI-BUKU TAMU", "short_name": "Buku Tamu", "start_url": "./index.html", "display": "standalone",
+  "background_color": "#ffffff", "theme_color": "#1E3A5F",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }] }
