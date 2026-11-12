@@ -34,7 +34,7 @@ function loadCfg() { return swr('cfg', 'cfg', {}, d => { if (!d) return; const c
 function logout(soft) { S = null; localStorage.removeItem('sess'); if (soft) toast('Sesi berakhir, silakan masuk kembali.', 1); location.hash = '#/login'; }
 
 // ---------- shell ----------
-const MENU = [['kiosk', 'Kiosk Mandiri', 'home', ['*']], ['antrean', 'Antrean Loket', 'list', ['admin', 'satpam', 'ptsp']], ['pantau', 'Layar Pantau', 'mon', ['*']], ['hadir', 'Kehadiran Sidang', 'gav', ['admin', 'pp']], ['dash', 'Dashboard & Laporan', 'chart', ['admin', 'pimpinan']], ['set', 'Pengaturan', 'cog', ['admin']]];
+const MENU = [['kiosk', 'Kiosk Mandiri', 'home', ['*']], ['antrean', 'Antrean Tamu', 'list', ['admin', 'satpam', 'ptsp', 'pp']], ['pantau', 'Layar Pantau', 'mon', ['*']], ['hadir', 'Kehadiran Sidang', 'gav', ['admin', 'pp']], ['dash', 'Dashboard & Laporan', 'chart', ['admin', 'pimpinan']], ['set', 'Pengaturan', 'cog', ['admin']]];
 function menuFor() { return MENU.filter(m => m[3][0] === '*' || (S && m[3].indexOf(S.me.role) > -1)); }
 function shell(route) {
   const items = menuFor(), staff = !!S, c = CFG || {};
@@ -60,7 +60,7 @@ function poll(fn, activeMs, idleMs) { let at = Date.now(); ['pointerdown', 'keyd
 // ---------- views ----------
 V.kiosk = function (el) {
   clearInterval(timer); const c = CFG || {};
-  el.innerHTML = '<div class="hero"><div class="lg">' + (c.logo ? '<img src="' + esc(c.logo) + '" alt="" style="max-width:100%;max-height:100%">' : ico('gav')) + '</div><h1>' + esc(c.nama || 'Pengadilan') + '</h1><p class="mut" style="max-width:640px;margin:8px auto">' + esc(c.sambutan || '') + '</p><span class="pill"><span class="dot"></span><b id="clk"></b></span></div>' +
+  el.innerHTML = '<div class="hero"><div class="lg">' + (c.logo ? '<img src="' + esc(c.logo) + '" alt="" style="max-width:100%;max-height:100%">' : ico('gav')) + '</div><div class="eyebrow">Buku Tamu Digital Terpadu</div><h1 class="ttl">' + esc(c.nama || 'Pengadilan') + '</h1><div class="rule"></div><p class="wel" style="max-width:680px;margin:0 auto 14px">' + esc(c.sambutan || '') + '</p><span class="pill"><span class="dot"></span><b id="clk"></b></span></div>' +
     '<div class="grid g2"><a class="card gold choice" href="#/form/ptsp"><div class="ico">' + ico('desk') + '</div><h2>Pelayanan PTSP</h2><p class="mut">Informasi, pendaftaran perkara, e-Court, legalisasi, dan layanan administrasi lainnya.</p><span class="btn p w" style="margin-top:auto">Mulai Pendaftaran PTSP</span></a>' +
     '<a class="card gold choice" href="#/form/sidang"><div class="ico g">' + ico('gav') + '</div><h2>Persidangan</h2><p class="mut">Penggugat, Tergugat, Kuasa Hukum, Saksi, Ahli, dan pengunjung sidang.</p><span class="btn g w" style="margin-top:auto">Registrasi Sidang Perkara</span></a></div>' +
     '<div class="card" style="margin-top:16px"><b>Jam Operasional</b><div class="mut">' + esc(c.jam || '-') + '</div></div>';
@@ -89,14 +89,21 @@ function ticket(t) {
     '<dl><dt>Nama</dt><dd>' + esc(t.nama) + '</dd><dt>Tanggal</dt><dd>' + esc(t.tanggal) + '</dd><dt>Waktu</dt><dd>' + esc(t.waktu) + '</dd>' + (t.noPerkara ? '<dt>No. Perkara</dt><dd>' + esc(t.noPerkara) + '</dd>' : '') + '</dl>' +
     '<div class="mut" style="font-size:12px">Simpan tiket ini hingga urusan selesai.</div><button class="btn g w" style="margin-top:12px" onclick="window.print()">' + ico('print') + ' Cetak Tiket</button>';
 }
+function speak(t) { try { if (!('speechSynthesis' in window)) return; const u = new SpeechSynthesisUtterance(t); u.lang = 'id-ID'; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
+const sayNo = n => String(n).replace(/-0*(\d+)/, ' $1');
 V.pantau = function (el) {
-  el.innerHTML = '<div class="row" style="justify-content:space-between"><h1>Layar Pantau Antrean</h1><span class="pill"><span class="dot"></span>Pembaruan otomatis · <b id="wk">--:--:--</b></span></div><div class="grid g2" style="margin-top:16px"><div class="card gold"><h2>Jalur PTSP</h2><div id="p1">' + sk() + '</div></div><div class="card gold"><h2>Jalur Persidangan</h2><div id="p2">' + sk() + '</div></div></div>';
+  let snd = false, seen = null;
+  el.innerHTML = '<div class="row" style="justify-content:space-between"><h1 class="ttl2">Layar Pantau Antrean</h1><span class="row" style="flex:none"><button class="btn s" id="sn">Suara: mati</button><span class="pill"><span class="dot"></span>Otomatis · <b id="wk">--:--:--</b></span></span></div><div id="cl" class="grid g2" style="margin-top:16px"></div><div class="grid g2" style="margin-top:16px"><div class="card gold"><h2>Jalur PTSP</h2><div id="p1">' + sk() + '</div></div><div class="card gold"><h2>Jalur Persidangan</h2><div id="p2">' + sk() + '</div></div></div>';
+  $('#sn').onclick = () => { snd = !snd; $('#sn').textContent = 'Suara: ' + (snd ? 'hidup' : 'mati'); if (snd) speak('Suara pemanggil antrean diaktifkan'); };
+  const tb = (rows, tujuan) => rows.length ? '<div class="tw" style="margin-top:8px"><table><tr><th>No.</th><th>Nama</th><th>Tujuan</th><th>Status</th></tr>' + rows.map(r => '<tr><td class="serif"><b>' + esc(r.nomor) + '</b></td><td>' + esc(r.nama) + '</td><td>' + esc(tujuan(r)) + '</td><td><span class="badge b-' + esc(r.status) + '">' + esc(r.status) + '</span></td></tr>').join('') + '</table></div>' : '<div class="empty">Belum ada antrean aktif.</div>';
   const draw = d => {
     if (!d) return; $('#wk').textContent = d.waktu;
-    $('#p1').innerHTML = d.ptsp.length ? '<div class="tw"><table><tr><th>No.</th><th>Nama</th><th>Loket</th><th>Status</th></tr>' + d.ptsp.map(r => '<tr><td class="serif"><b>' + esc(r.nomor) + '</b></td><td>' + esc(r.nama) + '</td><td>' + esc(r.loket) + '</td><td><span class="badge b-' + esc(r.status) + '">' + esc(r.status) + '</span></td></tr>').join('') + '</table></div>' : '<div class="empty">Belum ada antrean aktif.</div>';
-    $('#p2').innerHTML = d.sidang.length ? d.sidang.map(r => '<div class="card" style="margin:8px 0;padding:14px"><b>' + esc(r.ruang) + '</b> <span class="badge">' + esc(r.jam) + '</span><div class="serif" style="font-size:16px;margin:4px 0">' + esc(r.noPerkara) + '</div><div class="mut">' + esc(r.jenis) + ' · ' + esc(r.majelis) + '</div><span class="badge b-hadir">' + r.hadir + ' pihak hadir</span></div>').join('') : '<div class="empty">Tidak ada agenda sidang hari ini.</div>';
+    $('#cl').innerHTML = (d.dipanggil || []).map(c => '<div class="card call"><span class="badge b-Dipanggil">SEDANG DIPANGGIL · ' + esc(c.jalur) + '</span><div class="no" style="margin:6px 0">' + esc(c.nomor) + '</div><b>' + esc(c.nama) + '</b><div class="mut">Silakan menuju ' + esc(c.tujuan) + '</div></div>').join('');
+    const ids = (d.dipanggil || []).map(c => c.id + c.nomor); if (seen && snd) (d.dipanggil || []).forEach(c => { if (seen.indexOf(c.id + c.nomor) < 0) speak('Nomor antrian ' + sayNo(c.nomor) + ', atas nama ' + c.nama + ', silakan menuju ' + c.tujuan); }); seen = ids;
+    $('#p1').innerHTML = tb(d.ptsp, r => r.loket);
+    $('#p2').innerHTML = tb(d.antreanSidang || [], r => (r.ruang || '') + ' · ' + (r.noPerkara || '')) + (d.sidang.length ? '<h3 style="margin:16px 0 4px">Agenda Sidang Hari Ini</h3>' + d.sidang.map(r => '<div class="card" style="margin:8px 0;padding:14px"><b>' + esc(r.ruang) + '</b> <span class="badge">' + esc(r.jam) + '</span><div class="serif" style="font-size:16px;margin:4px 0">' + esc(r.noPerkara) + '</div><div class="mut">' + esc(r.jenis) + ' · ' + esc(r.majelis) + '</div><span class="badge b-hadir">' + r.hadir + ' pihak hadir</span></div>').join('') : '');
   };
-  const run = () => swr('pantau', 'pantau', {}, draw); run(); poll(() => api('pantau', {}, { read: true }).then(j => draw(j.data)), 10000);
+  swr('pantau', 'pantau', {}, draw); poll(() => api('pantau', {}, { read: true }).then(j => draw(j.data)), 8000);
 };
 V.login = function (el) {
   el.innerHTML = '<div class="card" style="max-width:400px;margin:40px auto"><h2>Masuk Petugas</h2><form id="lf"><label>Nama pengguna</label><input id="u" autocomplete="username" required><label>Kata sandi</label><input id="pw" type="password" autocomplete="current-password" required><div class="err" id="er"></div><button class="btn p w" id="go" style="margin-top:16px">Masuk</button></form></div>';
@@ -104,11 +111,30 @@ V.login = function (el) {
     try { const j = (await api('login', { username: $('#u').value, password: $('#pw').value })).data; S = { token: j.token, me: j.me }; localStorage.setItem('sess', JSON.stringify(S)); location.hash = '#/' + menuFor().filter(m => m[0] !== 'kiosk' && m[0] !== 'pantau')[0][0]; }
     catch (x) { $('#er').textContent = x.message; b.disabled = false; b.textContent = 'Masuk'; } };
 };
-V.antrean = function (el) {
-  el.innerHTML = '<h1>Antrean Loket</h1><div class="tw" style="margin-top:16px" id="tb">' + sk(4) + '</div>';
-  const draw = d => { if (!d) return; $('#tb').innerHTML = d.length ? '<table><tr><th>No.</th><th>Waktu</th><th>Nama</th><th>Layanan</th><th>Status</th><th>Aksi</th></tr>' + d.map(r => '<tr><td><b>' + esc(r.NoAntrean) + '</b></td><td>' + esc(r.Jam) + '</td><td>' + esc(r.Nama) + '<div class="mut">' + esc(r.NoHP) + '</div></td><td>' + esc(r.Loket || r.Ruang) + '</td><td><span class="badge b-' + esc(r.Status) + '">' + esc(r.Status) + '</span></td><td>' + ['Dipanggil', 'Selesai', 'Batal'].map(s => '<button class="btn s" data-i="' + esc(r.ID) + '" data-s="' + s + '">' + s + '</button>').join(' ') + '</td></tr>').join('') + '</table>' : '<div class="empty">Belum ada tamu hari ini.</div>'; };
-  $('#tb').onclick = async e => { const b = e.target.closest('button'); if (!b) return; b.disabled = true; try { await api('tamuStatus', { id: b.dataset.i, status: b.dataset.s }); toast('Status diperbarui.'); await load(); } catch (x) { toast(x.message, 1); b.disabled = false; } };
-  const load = () => api('antreanStaf', {}).then(j => { draw(j.data); localStorage.setItem('c_ant', JSON.stringify(j.data)); }); draw(J('c_ant')); load().catch(x => toast(x.message, 1)); poll(load, 12000);
+V.antrean = function (el, jl) {
+  const role = S.me.role, can = role === 'ptsp' ? ['ptsp'] : role === 'pp' ? ['sidang'] : ['ptsp', 'sidang'];
+  jl = can.indexOf(jl) > -1 ? jl : can[0]; const JN = jl === 'sidang' ? 'Persidangan' : 'PTSP'; let all = J('c_ant') || [];
+  el.innerHTML = '<h1 class="ttl2">Antrean ' + JN + '</h1>' + (can.length > 1 ? '<div class="tabs" style="max-width:420px;margin-top:12px"><a href="#/antrean/ptsp" class="' + (jl === 'ptsp' ? 'on' : '') + '">PTSP</a><a href="#/antrean/sidang" class="' + (jl === 'sidang' ? 'on' : '') + '">Persidangan</a></div>' : '') +
+    '<div class="card gold" style="margin:16px 0"><div class="row"><input id="no" placeholder="Nomor antrean, mis. ' + (jl === 'ptsp' ? 'A-001' : 'S-001') + '" autocomplete="off" style="text-transform:uppercase"><button class="btn p" id="pg">Panggil Nomor</button><button class="btn g" id="pn">Panggil Berikutnya</button><label style="margin:0;display:flex;gap:6px;align-items:center;flex:none"><input type="checkbox" id="snd" style="width:18px;height:18px" checked> Suara</label></div><div id="cur" style="margin-top:10px"></div></div><div class="grid g4" id="st"></div><div class="tw" style="margin-top:16px" id="tb">' + sk(4) + '</div>';
+  const ord = { Dipanggil: 0, Menunggu: 1, Selesai: 2, Batal: 3 };
+  const draw = () => {
+    const d = all.filter(r => r.Jalur === JN).sort((a, b) => (ord[a.Status] - ord[b.Status]) || String(a.Jam).localeCompare(String(b.Jam)) || String(a.NoAntrean).localeCompare(String(b.NoAntrean))), n = s => d.filter(r => r.Status === s).length;
+    $('#st').innerHTML = [['Menunggu', n('Menunggu')], ['Dipanggil', n('Dipanggil')], ['Selesai', n('Selesai')], ['Total', d.length]].map(x => '<div class="card stat"><span>' + x[0] + '</span><b>' + x[1] + '</b></div>').join('');
+    $('#tb').innerHTML = d.length ? '<table><tr><th>No.</th><th>Jam</th><th>Nama</th><th>Tujuan</th><th>Status</th><th>Aksi</th></tr>' + d.map(r => {
+      const wait = r.Status === 'Menunggu', cal = r.Status === 'Dipanggil';
+      return '<tr><td><b class="serif" style="font-size:18px">' + esc(r.NoAntrean) + '</b></td><td>' + esc(r.Jam) + '</td><td>' + esc(r.Nama) + '<div class="mut">' + esc(r.NoHP) + '</div></td><td>' + esc(r.Loket || r.Ruang) + (r.NoPerkara ? '<div class="mut">' + esc(r.NoPerkara) + ' · ' + esc(r.Peran) + '</div>' : '') + '</td><td><span class="badge b-' + esc(r.Status) + '">' + esc(r.Status) + '</span></td><td>' +
+        (wait || cal ? '<button class="btn p s" data-a="call" data-n="' + esc(r.NoAntrean) + '">' + (cal ? 'Panggil Ulang' : 'Panggil') + '</button> ' : '') + (cal ? '<button class="btn s" data-a="Selesai" data-i="' + esc(r.ID) + '">Selesai</button> ' : '') + (wait || cal ? '<button class="btn s" data-a="Batal" data-i="' + esc(r.ID) + '">Batal</button>' : '-') + '</td></tr>'; }).join('') + '</table>' : '<div class="empty">Belum ada tamu ' + JN + ' hari ini.</div>';
+  };
+  const load = () => api('antreanStaf', {}).then(j => { all = j.data; try { localStorage.setItem('c_ant', JSON.stringify(all)); } catch (e) {} draw(); });
+  const call = async p => { try { const j = await api('panggil', Object.assign({ jalur: JN }, p)), t = j.data;
+      $('#cur').innerHTML = '<span class="badge b-Dipanggil">SEDANG DIPANGGIL</span> <b class="serif" style="font-size:22px">' + esc(t.nomor) + '</b> ' + esc(t.nama) + ' → ' + esc(t.loket || t.ruang || '');
+      toast(j.message); if ($('#snd').checked) speak('Nomor antrian ' + sayNo(t.nomor) + ', atas nama ' + t.nama + ', silakan menuju ' + (t.loket || t.ruang || 'petugas')); $('#no').value = ''; await load(); } catch (x) { toast(x.message, 1); } };
+  $('#pg').onclick = () => { const v = $('#no').value.trim(); if (!v) return toast('Ketik nomor antrean terlebih dahulu.', 1); call({ nomor: v }); };
+  $('#pn').onclick = () => call({});
+  $('#no').onkeydown = e => { if (e.key === 'Enter') $('#pg').click(); };
+  $('#tb').onclick = async e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a === 'call') return call({ nomor: b.dataset.n });
+    b.disabled = true; try { await api('tamuStatus', { id: b.dataset.i, status: b.dataset.a }); toast('Status diperbarui.'); await load(); } catch (x) { toast(x.message, 1); b.disabled = false; } };
+  draw(); load().catch(x => toast(x.message, 1)); poll(load, 8000);
 };
 V.hadir = function (el) {
   el.innerHTML = '<div class="row"><h1>Kehadiran Sidang</h1><input type="date" id="dt" value="' + today() + '" style="max-width:180px"></div><div id="hl" style="margin-top:16px">' + sk(4) + '</div>';
